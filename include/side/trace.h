@@ -1805,6 +1805,42 @@ struct side_event_state {
 	side_event_cond(_identifier) \
 		side_event_call_variadic(_identifier, SIDE_PARAM(_sav), SIDE_PARAM(_var), SIDE_PARAM_SELECT_ARG1(_, ##_attr, side_attr_list()))
 
+#ifdef __cplusplus
+
+#define _side_define_event(_linkage, _identifier, _provider, _event,           \
+                           _loglevel, _fields, _flags, _attr...)               \
+        namespace {                                                            \
+        extern struct side_event_description                                   \
+            __attribute__((section("side_event_description"))) _identifier;    \
+        struct side_event_state __attribute__((section("side_event_state")))   \
+        side_event_state__##_identifier = {                                    \
+            .enabled = 0,                                                      \
+            .callbacks = &side_empty_callback,                                 \
+            .desc = &(_identifier),                                            \
+        };                                                                     \
+        struct side_event_description                                          \
+            __attribute__((section("side_event_description"))) _identifier = { \
+                .state = SIDE_PTR_INIT(&(side_event_state__##_identifier)),    \
+                .provider_name = SIDE_PTR_INIT(_provider),                     \
+                .event_name = SIDE_PTR_INIT(_event),                           \
+                .fields = SIDE_PTR_INIT(_fields),                              \
+                .attr = SIDE_PTR_INIT(                                         \
+                    SIDE_PARAM_SELECT_ARG1(_, ##_attr, side_attr_list())),     \
+                .flags = (_flags),                                             \
+                .version = 0,                                                  \
+                .loglevel = SIDE_ENUM_INIT(_loglevel),                         \
+                .nr_fields = SIDE_ARRAY_SIZE(SIDE_PARAM(_fields)),             \
+                .nr_attr = SIDE_ARRAY_SIZE(                                    \
+                    SIDE_PARAM_SELECT_ARG1(_, ##_attr, side_attr_list())),     \
+                .nr_callbacks = 0,                                             \
+        };                                                                     \
+        const struct side_event_description *side_event_ptr__##_identifier     \
+            __attribute__((section("side_event_description_ptr"), used)) =     \
+                &(_identifier);                                                \
+        } /* namespace */
+
+#else
+
 #define _side_define_event(_linkage, _identifier, _provider, _event, _loglevel, _fields, _flags, _attr...) \
 	_linkage struct side_event_description __attribute__((section("side_event_description"))) \
 			_identifier; \
@@ -1830,6 +1866,8 @@ struct side_event_state {
 	}; \
 	static const struct side_event_description *side_event_ptr__##_identifier \
 		__attribute__((section("side_event_description_ptr"), used)) = &(_identifier);
+
+#endif
 
 #define side_static_event(_identifier, _provider, _event, _loglevel, _fields, _attr...) \
 	_side_define_event(static, _identifier, _provider, _event, _loglevel, SIDE_PARAM(_fields), \
